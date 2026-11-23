@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    # asf_enumvar needs C++26 static reflection (P2996): GCC 16+ with
+    # -freflection. Ubuntu 26.04's g++-16 is a 2026-03 snapshot that ICEs
+    # on the reflection splicer (cp/mangle.cc); Arch ships the fixed
+    # GCC 16.2 release, which is what the tests are developed against.
+    container: archlinux:latest
+    steps:
+      - name: Install toolchain
+        run: pacman -Sy --noconfirm --needed gcc cmake ninja git
+
+      - name: Toolchain version
+        run: g++ --version
+
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_CXX_COMPILER=g++
+
+      - name: Build (tests + examples)
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Run examples (smoke)
+        run: |
+          ./build/example_shapes
+          ./build/example_connection
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_CXX_COMPILER=g++
+
+      - name: Build (tests + examples)
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Run examples (smoke)
+        run: |
+          ./build/example_shapes.exe
+          ./build/example_connection.exe

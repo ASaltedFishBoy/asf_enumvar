@@ -1,0 +1,3 @@
+build/
+*.exe
+inst_check/
